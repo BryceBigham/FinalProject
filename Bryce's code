@@ -1,0 +1,589 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Audio;
+using Microsoft.Xna.Framework.Content;
+using Microsoft.Xna.Framework.GamerServices;
+using Microsoft.Xna.Framework.Graphics;
+using Microsoft.Xna.Framework.Input;
+using Microsoft.Xna.Framework.Media;
+using HealthBarTutorial;
+
+public enum CurrentState
+{
+    TitleScreen,
+    AboutDev,
+    ControlsInfo,
+    Trans_Start_Level1,
+    Level1,
+    Trans_Level1_Level2,
+    Level2,
+    Trans_Level2_Level3,
+    Level3,
+    Trans_Level3_Boss,
+    BossLevel,
+    BeatGame,
+    GameOver
+}
+
+namespace WindowsGame1
+{
+    /// <summary>
+    /// This is the main type for your game
+    /// </summary>
+    public class Game1 : Microsoft.Xna.Framework.Game
+    {
+        
+        Texture2D Screen_TitleScreen;
+        Texture2D Screen_AboutDev;
+        Texture2D Screen_ControlsInfo;
+        Texture2D Screen_BeatGame;
+        Texture2D Screen_GameOver;
+
+        Texture2D Tex_TitleScreen_Option_Start_Button;
+        Texture2D Tex_TitleScreen_Option_AboutDev_Button;
+        Texture2D Tex_TitleScreen_Option_ControlsInfo_Button;
+        Texture2D Tex_ReturnToTitleScreen_Button;
+        Texture2D Tex_RetryLevel_Button;
+        
+        Texture2D LevelExitOpen; 
+        Texture2D LevelExitClosed;
+
+        public CurrentState GameState = CurrentState.TitleScreen;
+        public CurrentState PreviousGameState = CurrentState.TitleScreen;
+
+        KeyboardState keyboardstate;
+        MouseState mousestate;
+
+        Point ButtonClicked;
+
+        Rectangle Rect_StartButton;
+        Rectangle Rect_AboutDevButton;
+        Rectangle Rect_ControlsInfoButton;
+        Rectangle Rect_ReturnToTitleScreenButton;
+        Rectangle Rect_RetryLevel;
+
+        SoundEffect ThemeMusic;
+        SoundEffectInstance Sound_ThemeMusic;
+
+        SoundEffect Sound_BeatGame;
+        SoundEffect Sound_GameOver;
+        SoundEffect Sound_PlayerDying;
+        SoundEffect Sound_WeakEnemyDying;
+        SoundEffect Sound_BossDying;
+
+        Texture2D LevelExit;
+
+        Rectangle LevelExitLevel_1;
+        Rectangle LevelExitLevel_2;
+        Rectangle LevelExitLevel_3;
+
+        bool EnemiesAlive = true;
+        
+        GraphicsDeviceManager graphics;
+        SpriteBatch spriteBatch;
+        Rectangle viewportrect;
+
+        Player player;
+        int DamageDealt = Player.AttackDamage;
+
+        Vector2 drawpoint = new Vector2(0.1f, 0.1f);
+
+        BossClass boss;
+        
+        const int MaxNumOfEnemies = 4;
+        WeakEnemy[] WeakEnemies;        
+
+        List<Vector2> EnemySpawnPoints_Level1;
+        List<Vector2> EnemySpawnPoints_Level2;
+        List<Vector2> EnemySpawnPoints_Level3;
+
+        public Game1()
+        {
+            graphics = new GraphicsDeviceManager(this);
+            Content.RootDirectory = "Content";
+        }
+
+        /// <summary>
+        /// Allows the game to perform any initialization it needs to before starting to run.
+        /// This is where it can query for any required services and load any non-graphic
+        /// related content.  Calling base.Initialize will enumerate through any components
+        /// and initialize them as well.
+        /// </summary>
+        protected override void Initialize()
+        {
+            // TODO: Add your initialization logic here
+
+            IsMouseVisible = true;
+            
+            graphics.IsFullScreen = true;
+            this.graphics.PreferredBackBufferWidth = 1280;
+            this.graphics.PreferredBackBufferHeight = 720;
+            graphics.ApplyChanges();
+
+            EnemySpawnPoints_Level1 = new List<Vector2>();
+            EnemySpawnPoints_Level1.Add(new Vector2(100, 300));
+            EnemySpawnPoints_Level1.Add(new Vector2(300, 300));
+
+            EnemySpawnPoints_Level2 = new List<Vector2>();
+            EnemySpawnPoints_Level2.Add(new Vector2(200, 400));
+            EnemySpawnPoints_Level2.Add(new Vector2(500, 600));
+            EnemySpawnPoints_Level2.Add(new Vector2(600, 200));
+
+            EnemySpawnPoints_Level3 = new List<Vector2>();
+            EnemySpawnPoints_Level3.Add(new Vector2(200, 400));
+            EnemySpawnPoints_Level3.Add(new Vector2(500, 600));
+            EnemySpawnPoints_Level3.Add(new Vector2(600, 200));
+            EnemySpawnPoints_Level3.Add(new Vector2(500, 300));
+
+            Rect_StartButton = new Rectangle(200, 100, 200, 50);
+            Rect_AboutDevButton = new Rectangle(200, 250, 200, 50);
+            Rect_ControlsInfoButton = new Rectangle(200, 400, 200, 50);
+            Rect_RetryLevel = new Rectangle((graphics.GraphicsDevice.Viewport.Width / 2) - 200, (graphics.GraphicsDevice.Viewport.Height / 2) + 300, 200, 50);
+            Rect_ReturnToTitleScreenButton = new Rectangle(graphics.GraphicsDevice.Viewport.Width / 2, (graphics.GraphicsDevice.Viewport.Height / 2) + 300, 200, 50);
+
+            LevelExitLevel_1 = new Rectangle(100,200,50,50);
+            LevelExitLevel_2 = new Rectangle(200,300,50,50);
+            LevelExitLevel_3 = new Rectangle(300,200,50,50);
+
+            EnemiesAlive = true;
+
+            base.Initialize();
+        }
+
+        /// <summary>
+        /// LoadContent will be called once per game and is the place to load
+        /// all of your content.
+        /// </summary>
+        protected override void LoadContent()
+        {
+            // Create a new SpriteBatch, which can be used to draw textures.
+            spriteBatch = new SpriteBatch(GraphicsDevice);
+            
+            
+
+            ContentManager Content_Manager = new ContentManager (this.Services, @"Content/Screens_And_Textures");
+
+            viewportrect = new Rectangle(0, 0,
+                graphics.GraphicsDevice.Viewport.Width,
+                graphics.GraphicsDevice.Viewport.Height);
+
+            player = new Player();
+            player.LoadContent(Content);
+
+            boss = new BossClass();
+
+            Screen_TitleScreen = Content_Manager.Load<Texture2D>("TitleScreen");
+            Screen_AboutDev = Content_Manager.Load<Texture2D>("AboutDev");
+            Screen_ControlsInfo = Content_Manager.Load<Texture2D>("ControlsInfo");
+            Screen_BeatGame = Content_Manager.Load<Texture2D>("BeatGame");
+            Screen_GameOver = Content_Manager.Load<Texture2D>("GameOver");
+
+            Tex_TitleScreen_Option_Start_Button = Content_Manager.Load<Texture2D>("StartGameButton");
+            Tex_TitleScreen_Option_AboutDev_Button = Content_Manager.Load<Texture2D>("AboutDevButton");
+            Tex_TitleScreen_Option_ControlsInfo_Button = Content_Manager.Load<Texture2D>("ControlsInfoButton");
+            Tex_ReturnToTitleScreen_Button = Content_Manager.Load<Texture2D>("ReturnToTitleScreen");;
+            Tex_RetryLevel_Button = Content_Manager.Load<Texture2D>("RetryLevel");
+
+            WeakEnemies = new WeakEnemy[MaxNumOfEnemies];
+             /*           
+            WeakEnemies[0].Sprite = Content_Manager.Load<Texture2D>("WeakEnemy");
+            WeakEnemies[1].Sprite = Content_Manager.Load<Texture2D>("WeakEnemy");
+            WeakEnemies[2].Sprite = Content_Manager.Load<Texture2D>("WeakEnemy");
+            WeakEnemies[3].Sprite = Content_Manager.Load<Texture2D>("WeakEnemy");
+            */
+            
+            for(int i = 0; i < MaxNumOfEnemies; i++)
+            {
+                WeakEnemies[i] = new WeakEnemy (Content_Manager.Load<Texture2D>("WeakEnemy"));
+            }
+
+            boss.Sprite = Content_Manager.Load<Texture2D>("WeakEnemy");
+
+            LevelExitOpen = Content_Manager.Load<Texture2D>("ExitOpen");
+            LevelExitClosed = Content_Manager.Load<Texture2D>("ExitClosed");
+
+            ThemeMusic = Content_Manager.Load<SoundEffect>("GamePlay");
+            Sound_ThemeMusic = ThemeMusic.CreateInstance();
+            Sound_ThemeMusic.IsLooped = true;
+            Sound_ThemeMusic.Play();
+
+            Sound_BeatGame = Content_Manager.Load<SoundEffect>("BeatGameSound");
+            Sound_GameOver = Content_Manager.Load<SoundEffect>("GameOverSound");
+            Sound_PlayerDying = Content_Manager.Load<SoundEffect>("PlayerDying");
+            Sound_WeakEnemyDying = Content_Manager.Load<SoundEffect>("EnemyDying");
+            Sound_BossDying = Content_Manager.Load<SoundEffect>("BossDying");
+
+            // TODO: use this.Content to load your game content here
+        }
+
+        /// <summary>
+        /// UnloadContent will be called once per game and is the place to unload
+        /// all content.
+        /// </summary>
+        protected override void UnloadContent()
+        {
+            // TODO: Unload any non ContentManager content here
+        }
+
+        /// <summary>
+        /// Allows the game to run logic such as updating the world,
+        /// checking for collisions, gathering input, and playing audio.
+        /// </summary>
+        /// <param name="gameTime">Provides a snapshot of timing values.</param>
+        protected override void Update(GameTime gameTime)
+        {
+            // Allows the game to exit
+            if (GamePad.GetState(PlayerIndex.One).Buttons.Back == ButtonState.Pressed)
+                this.Exit();
+
+            int count = 0;
+            foreach (WeakEnemy we in WeakEnemies)
+            {
+                if(we.Alive)
+                {
+                    count++;
+                }
+            }
+            if (count > 0)
+            {
+                EnemiesAlive = true;
+            }
+            else if (count == 0)
+            {
+                EnemiesAlive = false;
+                LevelExit = LevelExitOpen;
+            }
+
+            player.Update(gameTime);
+            
+            mousestate = Mouse.GetState();
+            ButtonClicked = new Point(mousestate.X, mousestate.Y);
+
+            keyboardstate = Keyboard.GetState();
+
+            switch (GameState)
+            {
+                
+                case CurrentState.TitleScreen:
+                    //display homescreen and options
+                    if ( mousestate.LeftButton == ButtonState.Pressed && Rect_StartButton.Contains(ButtonClicked) )
+                    {
+                        GameState = CurrentState.Trans_Start_Level1;
+                    }
+                    if ( mousestate.LeftButton == ButtonState.Pressed && Rect_AboutDevButton.Contains(ButtonClicked) )
+                    {
+                        GameState = CurrentState.AboutDev;
+                    }
+                    if ( mousestate.LeftButton == ButtonState.Pressed && Rect_ControlsInfoButton.Contains(ButtonClicked) )
+                    {
+                        GameState = CurrentState.ControlsInfo;
+                    }
+                    break;
+
+
+                case CurrentState.AboutDev:
+                    //display image about us
+                    if ( mousestate.LeftButton == ButtonState.Pressed && Rect_ReturnToTitleScreenButton.Contains(ButtonClicked) )
+                    {
+                        GameState = CurrentState.TitleScreen;
+                    }
+                    break;
+
+
+                case CurrentState.ControlsInfo:
+                    //display image detailing controls
+                    if ( mousestate.LeftButton == ButtonState.Pressed && Rect_ReturnToTitleScreenButton.Contains(ButtonClicked))
+                    {
+                        GameState = CurrentState.TitleScreen;
+                    }
+                    break;
+
+
+                case CurrentState.Trans_Start_Level1:
+                    LoadLevel(EnemySpawnPoints_Level1);
+                    //spawn player at starting location
+                    LevelExit = LevelExitClosed;
+                    PreviousGameState = CurrentState.Trans_Level1_Level2;
+                    player.healthBar.currentHealth = player.healthBar.fullHealth;
+                    GameState = CurrentState.Level1;
+                    break;
+
+                    
+                case CurrentState.Level1:
+                    UpdateEnemies();
+                    if (player.rightRun.rect.Intersects(LevelExitLevel_1) && EnemiesAlive == false)
+                    {
+                        GameState = CurrentState.Trans_Level1_Level2;
+                    }
+                    if (player.healthBar.currentHealth <= 0)
+                    {
+                        GameState = CurrentState.GameOver;
+                    }
+                    break;
+
+
+                case CurrentState.Trans_Level1_Level2:
+                    LoadLevel(EnemySpawnPoints_Level2);
+                    //spawn player at starting location
+                    LevelExit = LevelExitClosed;
+                    GameState = CurrentState.Level2;
+                    break;
+
+
+                case CurrentState.Level2:
+                    UpdateEnemies();
+                    if (player.rightRun.rect.Intersects(LevelExitLevel_2) && EnemiesAlive == false)
+                    {
+                        GameState = CurrentState.Trans_Level2_Level3;
+                    }
+                    if (player.healthBar.currentHealth <= 0)
+                    {
+                        GameState = CurrentState.GameOver;
+                    }
+                    break;
+
+
+                case CurrentState.Trans_Level2_Level3:
+                    LoadLevel(EnemySpawnPoints_Level3);
+                    //spawn player at starting location
+                    LevelExit = LevelExitClosed;
+                    GameState = CurrentState.Level3;
+                    break;
+
+
+                case CurrentState.Level3:
+                    UpdateEnemies();
+                    if (player.rightRun.rect.Intersects(LevelExitLevel_3) && EnemiesAlive == false)
+                    {
+                        GameState = CurrentState.Trans_Level3_Boss;
+                    }
+                    if (player.healthBar.currentHealth <= 0)
+                    {
+                        GameState = CurrentState.GameOver;
+                    }
+                    break;
+
+
+                case CurrentState.Trans_Level3_Boss:
+                    //spawn player at starting location
+                    GameState = CurrentState.BossLevel;
+                    break;
+
+
+                case CurrentState.BossLevel:
+                    if (boss.CurrentHealth <= 0)
+                    {
+                        GameState = CurrentState.BeatGame;
+                    }
+                    if (player.healthBar.currentHealth <= 0)
+                    {
+                        GameState = CurrentState.GameOver;
+                    }
+                    break;
+
+
+                case CurrentState.GameOver:
+                    //display gameover sound and screen
+                    Sound_ThemeMusic.Pause();
+                    //Sound_GameOver.Play();
+                    if ( mousestate.LeftButton == ButtonState.Pressed && Rect_ReturnToTitleScreenButton.Contains(ButtonClicked) )
+                    {
+                        Sound_ThemeMusic.Resume();
+                        GameState = CurrentState.TitleScreen;
+                    }
+                    if ( mousestate.LeftButton == ButtonState.Pressed && Rect_RetryLevel.Contains(ButtonClicked) )
+                    {
+                        Sound_ThemeMusic.Resume();
+                        GameState = PreviousGameState;
+                    }
+                    break;
+
+
+                case CurrentState.BeatGame:
+                    //display victory screen and sound
+                    Sound_ThemeMusic.Pause();
+                    Sound_BeatGame.Play();
+                    if ( mousestate.LeftButton == ButtonState.Pressed && Rect_ReturnToTitleScreenButton.Contains(ButtonClicked) )
+                    {
+                        Sound_ThemeMusic.Resume();
+                        GameState = CurrentState.TitleScreen;
+                    }
+                    break;
+             }
+
+            // TODO: Add your update logic here
+            
+            base.Update(gameTime);
+        }
+
+        /// <summary>
+        /// This is called when the game should draw itself.
+        /// </summary>
+        /// <param name="gameTime">Provides a snapshot of timing values.</param>
+        protected override void Draw(GameTime gameTime)
+        {
+            GraphicsDevice.Clear(Color.CornflowerBlue);
+            
+            switch (GameState)
+            {
+                case CurrentState.TitleScreen:
+                    spriteBatch.Begin();
+                    spriteBatch.Draw(Screen_TitleScreen, viewportrect, Color.White);
+                    spriteBatch.Draw(Tex_TitleScreen_Option_Start_Button, Rect_StartButton, Color.White);
+                    spriteBatch.Draw(Tex_TitleScreen_Option_AboutDev_Button, Rect_AboutDevButton, Color.White);
+                    spriteBatch.Draw(Tex_TitleScreen_Option_ControlsInfo_Button, Rect_ControlsInfoButton, Color.White);
+                    spriteBatch.End();
+                    break;
+
+
+                case CurrentState.AboutDev:
+                    spriteBatch.Begin();
+                    spriteBatch.Draw(Screen_AboutDev, viewportrect, Color.White);
+                    spriteBatch.Draw(Tex_ReturnToTitleScreen_Button, Rect_ReturnToTitleScreenButton, Color.White);
+                    spriteBatch.End();
+                    break;
+
+
+                case CurrentState.ControlsInfo:
+                    spriteBatch.Begin();
+                    spriteBatch.Draw(Screen_ControlsInfo, viewportrect, Color.White);
+                    spriteBatch.Draw(Tex_ReturnToTitleScreen_Button, Rect_ReturnToTitleScreenButton, Color.White);
+                    spriteBatch.End();
+                    break;
+
+
+                case CurrentState.Level1:
+                    spriteBatch.Begin();
+                    //draw level first
+                    player.Draw(spriteBatch);
+                    spriteBatch.Draw(LevelExit, LevelExitLevel_1, Color.White);
+                    foreach (WeakEnemy we in WeakEnemies)
+                    {
+                        if (we.Alive)
+                        {
+                            spriteBatch.Draw(we.Sprite, we.Pos, Color.White);
+                        }
+                    }
+                    spriteBatch.End();
+                    break;
+
+
+                case CurrentState.Level2:
+                    spriteBatch.Begin();
+                    //draw level first
+                    player.Draw(spriteBatch);
+                    spriteBatch.Draw(LevelExit, LevelExitLevel_2, Color.White);
+                    foreach (WeakEnemy we in WeakEnemies)
+                    {
+                        if (we.Alive)
+                        {
+                            spriteBatch.Draw(we.Sprite, we.Pos, Color.White);
+                        }
+                    }
+                    spriteBatch.End();
+                    break;
+
+
+                case CurrentState.Level3:
+                    spriteBatch.Begin();
+                    //draw level first
+                    player.Draw(spriteBatch);
+                    spriteBatch.Draw(LevelExit, LevelExitLevel_3, Color.White);
+                    foreach (WeakEnemy we in WeakEnemies)
+                    {
+                        if (we.Alive)
+                        {
+                            spriteBatch.Draw(we.Sprite, we.Pos, Color.White);
+                        }
+                    }
+                    spriteBatch.End();
+                    break;
+
+
+                case CurrentState.BossLevel:
+                    spriteBatch.Begin();
+                    //draw function
+                    player.Draw(spriteBatch);
+                    spriteBatch.Draw(boss.Sprite, boss.BossPos, Color.White);
+                    spriteBatch.End();
+                    break;
+
+
+                case CurrentState.GameOver:
+                    spriteBatch.Begin();
+                    spriteBatch.Draw(Screen_GameOver, viewportrect, Color.White);
+                    spriteBatch.Draw(Tex_ReturnToTitleScreen_Button, Rect_ReturnToTitleScreenButton, Color.White);
+                    spriteBatch.Draw(Tex_RetryLevel_Button, Rect_RetryLevel, Color.White);
+                    spriteBatch.End();
+                    break;
+
+
+                case CurrentState.BeatGame:
+                    spriteBatch.Begin();
+                    spriteBatch.Draw(Screen_BeatGame, viewportrect, Color.White);
+                    spriteBatch.Draw(Tex_ReturnToTitleScreen_Button, Rect_ReturnToTitleScreenButton, Color.White);
+                    spriteBatch.End();
+                    break;
+             }
+
+            // TODO: Add your drawing code here
+
+            base.Draw(gameTime);
+        }
+
+        public void UpdateEnemies()
+        {
+            foreach (WeakEnemy we in WeakEnemies)
+            {
+                if (we.CurrentHealth <= 0)
+                {
+                    we.Alive = false;
+                }
+                if (we.Alive)
+                {
+                    if (player.rightRun.rect.Y == we.Pos.Y)
+                    {
+                        we.SeesPlayer = true;
+                    }
+
+                    if (we.SeesPlayer == true)
+                    {
+                        if (player.rightRun.rect.X < we.Pos.X)
+                        {
+                            we.Pos.X--;
+                        }
+                        else if (player.rightRun.rect.X > we.Pos.X)
+                        {
+                            we.Pos.X++;
+                        }
+                    }
+
+                    if (player.rightRun.sourcerect.Contains(we.WeakEnemyRect.Left, we.WeakEnemyRect.Top) || player.rightRun.sourcerect.Contains(we.WeakEnemyRect.Right, we.WeakEnemyRect.Top))
+                    {
+                        if (keyboardstate.IsKeyDown(Keys.K))
+                        {
+                            we.CurrentHealth -= DamageDealt;
+                        }
+                        else
+                        {
+                            player.healthBar.currentHealth -= we.AttackDamage;
+                        }
+                    }
+                }
+            }
+        }
+
+        public void LoadLevel(List<Vector2> veclist)
+        {
+            int i = 0;
+            foreach(Vector2 p in veclist) 
+            {
+                WeakEnemies[i].Pos = p;
+                WeakEnemies[i].Alive = true;
+                i++;
+            }
+        }
+    }  
+}
